@@ -1,7 +1,5 @@
 # Codex Usage Widget Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Build and verify a compact Windows 10 desktop HUD that shows remaining Codex five-hour and weekly allowances with reset timing.
 
 **Architecture:** A .NET 8 WPF presentation layer consumes a small domain model populated by a persistent stdio connection to `codex app-server`. Parsing, time formatting, settings, startup registration, and window placement remain separate units so the experimental protocol can change without rewriting the UI.
