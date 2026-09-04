@@ -29,10 +29,11 @@ The widget communicates with the locally installed Codex CLI through the officia
 
 Executable discovery checks, in order:
 
-1. `codex.exe` available through `PATH`.
-2. `%USERPROFILE%\.codex\.sandbox-bin\codex.exe`.
+1. A runnable `codex.exe` available through `PATH`.
+2. A runnable `%USERPROFILE%\.codex\.sandbox-bin\codex.exe`.
+3. The CLI bundled with the installed `OpenAI.Codex` Windows package. Because Windows blocks direct execution of the package's internal CLI by ordinary desktop processes, the widget reads the package root from the current user's AppModel repository and stages that exact `codex.exe` into a versioned `%LOCALAPPDATA%\CodexUsageWidget\CodexCli\<package-id>\` cache using an atomic first-write. It never overwrites or deletes an existing staged version.
 
-If neither path resolves to a runnable Codex CLI, the widget enters its unavailable state and reports that Codex could not be found; it does not search arbitrary executables or modify Codex configuration.
+Every candidate must successfully answer `--version` before use. If no candidate resolves to a runnable Codex CLI, the widget enters its unavailable state and reports that Codex could not be found; it does not search arbitrary executables, read token files, or modify Codex configuration.
 
 The app-server interface is documented by OpenAI but currently marked experimental. The protocol is therefore isolated behind a small client interface so response handling or transport can be replaced without changing the UI.
 
