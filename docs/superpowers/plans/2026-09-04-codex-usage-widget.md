@@ -428,11 +428,14 @@ Create `src/CodexUsageWidget/Services/CodexExecutableLocator.cs`:
 
 ```csharp
 using System.Diagnostics;
+using Microsoft.Win32;
 
 namespace CodexUsageWidget.Services;
 
 public static class CodexExecutableLocator
 {
+    private const string PackageRepositoryKey = @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+
     public static string? Find()
     {
         var candidates = new List<string>();
@@ -441,7 +444,44 @@ public static class CodexExecutableLocator
             .Select(directory => Path.Combine(directory, "codex.exe")));
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         candidates.Add(Path.Combine(profile, ".codex", ".sandbox-bin", "codex.exe"));
+        candidates.AddRange(StagePackagedCliCandidates());
         return candidates.Distinct(StringComparer.OrdinalIgnoreCase).FirstOrDefault(IsRunnable);
+    }
+
+    private static IEnumerable<string> StagePackagedCliCandidates()
+    {
+        using var packages = Registry.CurrentUser.OpenSubKey(PackageRepositoryKey);
+        if (packages is null) yield break;
+        foreach (var packageId in packages.GetSubKeyNames()
+                     .Where(name => name.StartsWith("OpenAI.Codex_", StringComparison.OrdinalIgnoreCase))
+                     .OrderByDescending(name => name, StringComparer.OrdinalIgnoreCase))
+        {
+            using var package = packages.OpenSubKey(packageId);
+            if (package?.GetValue("PackageRootFolder") is not string root) continue;
+            var source = Path.Combine(root, "app", "resources", "codex.exe");
+            if (!File.Exists(source)) continue;
+            var cacheDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CodexUsageWidget", "CodexCli", packageId);
+            var destination = Path.Combine(cacheDirectory, "codex.exe");
+            if (!File.Exists(destination))
+            {
+                Directory.CreateDirectory(cacheDirectory);
+                var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    File.Copy(source, temporary, overwrite: false);
+                    try { File.Move(temporary, destination, overwrite: false); }
+                    catch (IOException) when (File.Exists(destination)) { File.Delete(temporary); }
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    try { File.Delete(temporary); } catch { }
+                    continue;
+                }
+            }
+            yield return destination;
+        }
     }
 
     private static bool IsRunnable(string candidate)
