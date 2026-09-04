@@ -1457,7 +1457,12 @@ public partial class MainWindow : Window
     private void SaveSettings()
     {
         if (!IsLoaded) return;
-        _settings = new WidgetSettings(Left, Top, WindowPlacementService.CurrentMonitor(this), _startupManager.IsEnabled());
+        var placement = WindowPlacementService.Capture(this);
+        _settings = new WidgetSettings(
+            placement.Left,
+            placement.Top,
+            placement.MonitorDeviceName,
+            _startupManager.IsEnabled());
         _settingsStore.Save(_settings);
     }
 
