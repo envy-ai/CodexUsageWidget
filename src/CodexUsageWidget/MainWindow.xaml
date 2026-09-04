@@ -73,7 +73,7 @@
                            Foreground="{StaticResource PrimaryTextBrush}" Text="5 HOUR" />
                 <ProgressBar Grid.Column="1" Margin="4,0,8,0" VerticalAlignment="Center"
                              Minimum="0" Maximum="100"
-                             Value="{Binding FiveHourRemaining, TargetNullValue=0}"
+                             Value="{Binding FiveHourRemaining, Mode=OneWay, TargetNullValue=0}"
                              Foreground="{Binding FiveHourRemaining, Converter={StaticResource RemainingBrushConverter}}"
                              Style="{StaticResource MeterProgressBarStyle}" />
                 <TextBlock Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right"
@@ -98,7 +98,7 @@
                            Foreground="{StaticResource PrimaryTextBrush}" Text="WEEK" />
                 <ProgressBar Grid.Column="1" Margin="4,0,8,0" VerticalAlignment="Center"
                              Minimum="0" Maximum="100"
-                             Value="{Binding WeeklyRemaining, TargetNullValue=0}"
+                             Value="{Binding WeeklyRemaining, Mode=OneWay, TargetNullValue=0}"
                              Foreground="{Binding WeeklyRemaining, Converter={StaticResource RemainingBrushConverter}}"
                              Style="{StaticResource MeterProgressBarStyle}" />
                 <TextBlock Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right"
