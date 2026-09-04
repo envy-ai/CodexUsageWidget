@@ -1425,7 +1425,7 @@ public partial class MainWindow : Window
 
     private void Startup_Click(object sender, RoutedEventArgs e)
     {
-        _startupManager.SetEnabled(StartWithWindowsMenuItem.IsChecked);
+        _startupManager.SetEnabled(StartWithWindowsMenuItem.IsChecked == true);
         StartWithWindowsMenuItem.IsChecked = _startupManager.IsEnabled();
         SaveSettings();
     }
