@@ -367,6 +367,8 @@ Expected: FAIL because `ResetTimeFormatter` does not exist.
 Create `src/CodexUsageWidget/Services/ResetTimeFormatter.cs`:
 
 ```csharp
+using System.Globalization;
+
 namespace CodexUsageWidget.Services;
 
 public static class ResetTimeFormatter
@@ -382,7 +384,7 @@ public static class ResetTimeFormatter
                 ? $"{(int)remaining.TotalHours}h {remaining.Minutes}m"
                 : $"{Math.Max(1, remaining.Minutes)}m";
         var local = TimeZoneInfo.ConvertTime(reset, zone);
-        return $"{countdown} · resets {local:ddd h:mm tt}";
+        return $"{countdown} · resets {local.ToString("ddd h:mm tt", CultureInfo.InvariantCulture)}";
     }
 }
 ```
