@@ -427,22 +427,46 @@ public interface ICodexUsageClient : IAsyncDisposable
 Create `src/CodexUsageWidget/Services/CodexExecutableLocator.cs`:
 
 ```csharp
+using System.Diagnostics;
+
 namespace CodexUsageWidget.Services;
 
 public static class CodexExecutableLocator
 {
     public static string? Find()
     {
+        var candidates = new List<string>();
         var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-        foreach (var directory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            var candidate = Path.Combine(directory, "codex.exe");
-            if (File.Exists(candidate)) return candidate;
-        }
-
+        candidates.AddRange(path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(directory => Path.Combine(directory, "codex.exe")));
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var fallback = Path.Combine(profile, ".codex", ".sandbox-bin", "codex.exe");
-        return File.Exists(fallback) ? fallback : null;
+        candidates.Add(Path.Combine(profile, ".codex", ".sandbox-bin", "codex.exe"));
+        return candidates.Distinct(StringComparer.OrdinalIgnoreCase).FirstOrDefault(IsRunnable);
+    }
+
+    private static bool IsRunnable(string candidate)
+    {
+        if (!File.Exists(candidate)) return false;
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(candidate, "--version")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            });
+            if (process is null || !process.WaitForExit(3000))
+            {
+                try { process?.Kill(entireProcessTree: true); } catch { }
+                return false;
+            }
+            return process.ExitCode == 0;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
     }
 }
 ```
@@ -464,24 +488,30 @@ public sealed class CodexAppServerClient : ICodexUsageClient
     private readonly string _executable;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConcurrentDictionary<long, TaskCompletionSource<string>> _pending = new();
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private Process? _process;
     private CancellationTokenSource? _readerCancellation;
+    private Task? _readerTask;
+    private Task? _stderrTask;
     private long _requestId;
+    private int _disposed;
 
     public CodexAppServerClient(string executable) => _executable = executable;
 
     public async Task<UsageSnapshot> GetUsageAsync(CancellationToken cancellationToken)
     {
-        await _gate.WaitAsync(cancellationToken);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeCancellation.Token);
+        await _gate.WaitAsync(linked.Token);
         try
         {
-            await EnsureStartedAsync(cancellationToken);
-            var response = await SendRequestAsync("account/rateLimits/read", null, cancellationToken);
+            await EnsureStartedAsync(linked.Token);
+            var response = await SendRequestAsync("account/rateLimits/read", null, linked.Token);
             return UsageSnapshotParser.ParseResponse(response);
         }
         catch
         {
-            StopProcess();
+            await StopProcessAsync();
             throw;
         }
         finally
@@ -493,6 +523,7 @@ public sealed class CodexAppServerClient : ICodexUsageClient
     private async Task EnsureStartedAsync(CancellationToken cancellationToken)
     {
         if (_process is { HasExited: false }) return;
+        await StopProcessAsync();
 
         var startInfo = new ProcessStartInfo(_executable, "app-server")
         {
@@ -507,8 +538,8 @@ public sealed class CodexAppServerClient : ICodexUsageClient
         };
         _process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start Codex app-server.");
         _readerCancellation = new CancellationTokenSource();
-        _ = ReadStdoutAsync(_process, _readerCancellation.Token);
-        _ = DrainStderrAsync(_process, _readerCancellation.Token);
+        _readerTask = ReadStdoutAsync(_process, _readerCancellation.Token);
+        _stderrTask = DrainStderrAsync(_process, _readerCancellation.Token);
 
         var initialize = await SendRequestAsync("initialize", new
         {
@@ -572,25 +603,44 @@ public sealed class CodexAppServerClient : ICodexUsageClient
         catch (OperationCanceledException) { }
     }
 
-    private void StopProcess()
+    private async Task StopProcessAsync()
     {
-        _readerCancellation?.Cancel();
-        if (_process is { HasExited: false })
+        var process = _process;
+        var cancellation = _readerCancellation;
+        var readerTask = _readerTask;
+        var stderrTask = _stderrTask;
+        _process = null;
+        _readerCancellation = null;
+        _readerTask = null;
+        _stderrTask = null;
+
+        cancellation?.Cancel();
+        if (process is { HasExited: false })
         {
-            try { _process.Kill(entireProcessTree: true); }
+            try { process.Kill(entireProcessTree: true); }
             catch (InvalidOperationException) { }
         }
-        _process?.Dispose();
-        _process = null;
-        _readerCancellation?.Dispose();
-        _readerCancellation = null;
+        try
+        {
+            await Task.WhenAll(readerTask ?? Task.CompletedTask, stderrTask ?? Task.CompletedTask);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or IOException) { }
+        process?.Dispose();
+        cancellation?.Dispose();
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        StopProcess();
-        _gate.Dispose();
-        return ValueTask.CompletedTask;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _lifetimeCancellation.Cancel();
+        await _gate.WaitAsync();
+        try { await StopProcessAsync(); }
+        finally
+        {
+            _gate.Release();
+            _gate.Dispose();
+            _lifetimeCancellation.Dispose();
+        }
     }
 }
 ```
@@ -807,15 +857,21 @@ public sealed class StartupManager
 Create `src/CodexUsageWidget/Services/WindowPlacementService.cs`:
 
 ```csharp
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 using Forms = System.Windows.Forms;
 
 namespace CodexUsageWidget.Services;
 
 public readonly record struct WindowPosition(double Left, double Top);
+public readonly record struct CapturedPlacement(double Left, double Top, string MonitorDeviceName);
 
 public static class WindowPlacementService
 {
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+
     public static WindowPosition Clamp(double left, double top, double width, double height,
         double workLeft, double workTop, double workRight, double workBottom) =>
         new(
@@ -824,27 +880,39 @@ public static class WindowPlacementService
 
     public static void Restore(Window window, WidgetSettings settings)
     {
-        var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
-        var preferred = Forms.Screen.AllScreens.FirstOrDefault(s => s.DeviceName == settings.MonitorDeviceName)
-            ?? Forms.Screen.PrimaryScreen!;
-        var work = preferred.WorkingArea;
-        var workLeft = work.Left / dpi.DpiScaleX;
-        var workTop = work.Top / dpi.DpiScaleY;
-        var workRight = work.Right / dpi.DpiScaleX;
-        var workBottom = work.Bottom / dpi.DpiScaleY;
-        var left = settings.Left ?? (workRight - window.Width - 20);
-        var top = settings.Top ?? (workBottom - window.Height - 20);
-        var position = Clamp(left, top, window.Width, window.Height, workLeft, workTop, workRight, workBottom);
-        window.Left = position.Left;
-        window.Top = position.Top;
+        var handle = new WindowInteropHelper(window).Handle;
+        GetWindowRect(handle, out var current);
+        var width = Math.Max(1, current.Right - current.Left);
+        var height = Math.Max(1, current.Bottom - current.Top);
+        var savedPoint = new System.Drawing.Point((int)(settings.Left ?? current.Left), (int)(settings.Top ?? current.Top));
+        var screen = Forms.Screen.AllScreens.FirstOrDefault(candidate => candidate.DeviceName == settings.MonitorDeviceName)
+            ?? Forms.Screen.FromPoint(savedPoint);
+        var work = screen.WorkingArea;
+        var desiredLeft = settings.Left ?? work.Right - width - 20;
+        var desiredTop = settings.Top ?? work.Bottom - height - 20;
+        var position = Clamp(desiredLeft, desiredTop, width, height, work.Left, work.Top, work.Right, work.Bottom);
+        SetWindowPos(handle, IntPtr.Zero, (int)Math.Round(position.Left), (int)Math.Round(position.Top), 0, 0,
+            SwpNoZOrder | SwpNoActivate);
     }
 
-    public static string CurrentMonitor(Window window)
+    public static CapturedPlacement Capture(Window window)
     {
-        var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
-        var point = new System.Drawing.Point((int)((window.Left + window.Width / 2) * dpi.DpiScaleX), (int)((window.Top + window.Height / 2) * dpi.DpiScaleY));
-        return Forms.Screen.FromPoint(point).DeviceName;
+        var handle = new WindowInteropHelper(window).Handle;
+        GetWindowRect(handle, out var rect);
+        var center = new System.Drawing.Point((rect.Left + rect.Right) / 2, (rect.Top + rect.Bottom) / 2);
+        return new CapturedPlacement(rect.Left, rect.Top, Forms.Screen.FromPoint(center).DeviceName);
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect { public int Left; public int Top; public int Right; public int Bottom; }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
 }
 ```
 
