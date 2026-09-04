@@ -1074,6 +1074,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
     private readonly Func<DateTimeOffset> _clock;
     private readonly TimeZoneInfo _zone;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(60) };
     private readonly DispatcherTimer _countdownTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private UsageSnapshot? _snapshot;
@@ -1085,6 +1086,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
     private string _statusText = "Connecting…";
     private bool _isStale;
     private DateTimeOffset? _lastSuccessfulUpdate;
+    private int _disposed;
 
     public MainViewModel(ICodexUsageClient client, Func<DateTimeOffset>? clock = null, TimeZoneInfo? zone = null)
     {
@@ -1118,10 +1120,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
 
     public async Task RefreshAsync()
     {
-        if (!await _refreshGate.WaitAsync(0)) return;
+        if (Volatile.Read(ref _disposed) != 0 || !await _refreshGate.WaitAsync(0)) return;
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            if (Volatile.Read(ref _disposed) != 0) return;
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCancellation.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(10));
             var snapshot = await _client.GetUsageAsync(timeout.Token);
             _snapshot = snapshot;
             FiveHourRemaining = snapshot.FiveHour?.RemainingPercent;
@@ -1133,6 +1137,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
             StatusText = string.Empty;
             UpdateCountdowns();
         }
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested) { }
         catch (Exception exception) when (exception is IOException or FormatException or FileNotFoundException or InvalidOperationException or OperationCanceledException)
         {
             if (LastSuccessfulUpdate is null)
@@ -1179,10 +1184,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _refreshTimer.Stop();
         _countdownTimer.Stop();
-        await _client.DisposeAsync();
-        _refreshGate.Dispose();
+        _lifetimeCancellation.Cancel();
+        await _refreshGate.WaitAsync();
+        try { await _client.DisposeAsync(); }
+        finally
+        {
+            _refreshGate.Release();
+            _refreshGate.Dispose();
+            _lifetimeCancellation.Dispose();
+        }
     }
 }
 ```
@@ -1204,7 +1217,7 @@ Replace `src/CodexUsageWidget/App.xaml` with:
 <Application x:Class="CodexUsageWidget.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             ShutdownMode="OnMainWindowClose">
+             ShutdownMode="OnExplicitShutdown">
     <Application.Resources />
 </Application>
 ```
@@ -1289,7 +1302,7 @@ using CodexUsageWidget.ViewModels;
 
 namespace CodexUsageWidget;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private MainViewModel? _viewModel;
 
@@ -1305,13 +1318,16 @@ public partial class App : Application
         _viewModel = new MainViewModel(client);
         var window = new MainWindow(_viewModel, settings, startup);
         MainWindow = window;
+        window.Closed += async (_, _) =>
+        {
+            if (_viewModel is not null)
+            {
+                await _viewModel.DisposeAsync();
+                _viewModel = null;
+            }
+            Shutdown();
+        };
         window.Show();
-    }
-
-    protected override void OnExit(ExitEventArgs e)
-    {
-        _viewModel?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        base.OnExit(e);
     }
 
     private sealed class UnavailableUsageClient : ICodexUsageClient
