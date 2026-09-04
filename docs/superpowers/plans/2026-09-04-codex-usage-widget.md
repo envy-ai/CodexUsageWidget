@@ -853,9 +853,17 @@ public sealed class SettingsStore
     public void Save(WidgetSettings settings)
     {
         Directory.CreateDirectory(_directory);
-        var temporary = PathName + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, PathName, true);
+        var temporary = PathName + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+            if (File.Exists(PathName)) File.Replace(temporary, PathName, null);
+            else File.Move(temporary, PathName);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 }
 ```
