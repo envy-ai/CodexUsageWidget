@@ -249,8 +249,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
         finally
         {
             _refreshGate.Release();
-            _refreshGate.Dispose();
-            _lifetimeCancellation.Dispose();
         }
     }
 }
