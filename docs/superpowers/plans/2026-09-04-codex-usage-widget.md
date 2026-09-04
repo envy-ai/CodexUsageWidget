@@ -585,12 +585,12 @@ public sealed class CodexAppServerClient : ICodexUsageClient
 
         var initialize = await SendRequestAsync("initialize", new
         {
-            clientInfo = new { name = "codex-usage-widget", version = "1.0.0" }
+            clientInfo = new { name = "codex-usage-widget", title = "Codex Usage Widget", version = "1.0.0" }
         }, cancellationToken);
         using var document = JsonDocument.Parse(initialize);
         if (!document.RootElement.TryGetProperty("result", out _))
             throw new InvalidOperationException("Codex app-server initialization failed.");
-        await WriteLineAsync(JsonSerializer.Serialize(new { method = "initialized", @params = new { } }), cancellationToken);
+        await WriteLineAsync(JsonSerializer.Serialize(new { method = "initialized" }), cancellationToken);
     }
 
     private async Task<string> SendRequestAsync(string method, object? parameters, CancellationToken cancellationToken)
@@ -600,7 +600,10 @@ public sealed class CodexAppServerClient : ICodexUsageClient
         _pending[id] = completion;
         try
         {
-            await WriteLineAsync(JsonSerializer.Serialize(new { method, id, @params = parameters }), cancellationToken);
+            var request = parameters is null
+                ? JsonSerializer.Serialize(new { method, id })
+                : JsonSerializer.Serialize(new { method, id, @params = parameters });
+            await WriteLineAsync(request, cancellationToken);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(10));
             return await completion.Task.WaitAsync(timeout.Token);
