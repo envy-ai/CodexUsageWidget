@@ -1,12 +1,164 @@
 ﻿<Window x:Class="CodexUsageWidget.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CodexUsageWidget"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Codex usage"
+        Width="330"
+        Height="86"
+        MinWidth="330"
+        MaxWidth="330"
+        MinHeight="86"
+        MaxHeight="86"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="False"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        SourceInitialized="Window_SourceInitialized"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    <Window.Resources>
+        <local:RemainingBrushConverter x:Key="RemainingBrushConverter" />
+        <Style x:Key="MeterProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="5" />
+            <Setter Property="Background" Value="{StaticResource TrackBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid ClipToBounds="True">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2.5" />
+                            <Border x:Name="PART_Track" CornerRadius="2.5" />
+                            <Border x:Name="PART_Indicator"
+                                    HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}"
+                                    CornerRadius="2.5" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
-    </Grid>
+    <Border x:Name="PanelBorder"
+            Margin="1"
+            Padding="12,8,12,7"
+            Background="{StaticResource PanelBackgroundBrush}"
+            BorderBrush="{StaticResource PanelBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="11"
+            MouseLeftButtonDown="Panel_MouseLeftButtonDown">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="14" Direction="270" ShadowDepth="3" Opacity="0.45" />
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="25" />
+                <RowDefinition Height="25" />
+                <RowDefinition Height="15" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="50" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="36" />
+                    <ColumnDefinition Width="140" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                           FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource PrimaryTextBrush}" Text="5 HOUR" />
+                <ProgressBar Grid.Column="1" Margin="4,0,8,0" VerticalAlignment="Center"
+                             Minimum="0" Maximum="100"
+                             Value="{Binding FiveHourRemaining, TargetNullValue=0}"
+                             Foreground="{Binding FiveHourRemaining, Converter={StaticResource RemainingBrushConverter}}"
+                             Style="{StaticResource MeterProgressBarStyle}" />
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right"
+                           FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                           Foreground="{Binding FiveHourRemaining, Converter={StaticResource RemainingBrushConverter}}"
+                           Text="{Binding FiveHourPercentageText, TargetNullValue=—}" />
+                <TextBlock Grid.Column="3" Margin="6,0,0,0" VerticalAlignment="Center"
+                           FontFamily="Consolas" FontSize="8.5"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           Text="{Binding FiveHourResetText, TargetNullValue=—}" />
+            </Grid>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="50" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="36" />
+                    <ColumnDefinition Width="140" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                           FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource PrimaryTextBrush}" Text="WEEK" />
+                <ProgressBar Grid.Column="1" Margin="4,0,8,0" VerticalAlignment="Center"
+                             Minimum="0" Maximum="100"
+                             Value="{Binding WeeklyRemaining, TargetNullValue=0}"
+                             Foreground="{Binding WeeklyRemaining, Converter={StaticResource RemainingBrushConverter}}"
+                             Style="{StaticResource MeterProgressBarStyle}" />
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right"
+                           FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                           Foreground="{Binding WeeklyRemaining, Converter={StaticResource RemainingBrushConverter}}"
+                           Text="{Binding WeeklyPercentageText, TargetNullValue=—}" />
+                <TextBlock Grid.Column="3" Margin="6,0,0,0" VerticalAlignment="Center"
+                           FontFamily="Consolas" FontSize="8.5"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           Text="{Binding WeeklyResetText, TargetNullValue=—}" />
+            </Grid>
+
+            <TextBlock Grid.Row="2" VerticalAlignment="Bottom"
+                       FontFamily="Consolas" FontSize="9"
+                       Foreground="{StaticResource MutedTextBrush}"
+                       Text="{Binding StatusText}" />
+
+            <Button x:Name="CloseButton"
+                    Grid.RowSpan="3"
+                    Width="18" Height="18"
+                    Margin="0,-5,-7,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Panel.ZIndex="2"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    FontFamily="Consolas"
+                    FontSize="14"
+                    Foreground="{StaticResource MutedTextBrush}"
+                    ToolTip="Exit"
+                    Click="CloseButton_Click"
+                    Content="×">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="IsHitTestVisible" Value="False" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=PanelBorder}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                                <Setter Property="IsHitTestVisible" Value="True" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </Grid>
+        <Border.ContextMenu>
+            <ContextMenu Opened="ContextMenu_Opened">
+                <MenuItem Header="Refresh now" Click="RefreshNow_Click" />
+                <MenuItem x:Name="StartWithWindowsMenuItem"
+                          Header="Start with Windows"
+                          IsCheckable="True"
+                          Click="StartWithWindows_Click" />
+                <Separator />
+                <MenuItem Header="Exit" Click="Exit_Click" />
+            </ContextMenu>
+        </Border.ContextMenu>
+    </Border>
 </Window>
