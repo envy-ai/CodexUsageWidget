@@ -105,10 +105,32 @@ public static class WindowPlacementService
         var currentCenterX = rectangle.Left + ((rectangle.Right - rectangle.Left) / 2);
         var currentCenterY = rectangle.Top + ((rectangle.Bottom - rectangle.Top) / 2);
         var nearestPoint = new System.Drawing.Point(
-            checked((int)Math.Round(settings.Left ?? currentCenterX)),
-            checked((int)Math.Round(settings.Top ?? currentCenterY)));
+            ToNativeCoordinate(settings.Left, currentCenterX),
+            ToNativeCoordinate(settings.Top, currentCenterY));
 
         return Forms.Screen.FromPoint(nearestPoint);
+    }
+
+    private static int ToNativeCoordinate(double? savedValue, int fallback)
+    {
+        var value = savedValue ?? fallback;
+        if (!double.IsFinite(value))
+        {
+            value = fallback;
+        }
+
+        var rounded = Math.Round(value);
+        if (rounded <= int.MinValue)
+        {
+            return int.MinValue;
+        }
+
+        if (rounded >= int.MaxValue)
+        {
+            return int.MaxValue;
+        }
+
+        return (int)rounded;
     }
 
     private static NativeRectangle GetRectangle(IntPtr handle)

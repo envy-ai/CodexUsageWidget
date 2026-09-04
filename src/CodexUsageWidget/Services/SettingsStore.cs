@@ -1,4 +1,5 @@
 using System.IO;
+using System.Security;
 using System.Text.Json;
 
 namespace CodexUsageWidget.Services;
@@ -80,10 +81,24 @@ public sealed class SettingsStore
         }
         finally
         {
-            if (File.Exists(temporaryPath))
-            {
-                File.Delete(temporaryPath);
-            }
+            TryDeleteTemporaryFile(temporaryPath);
+        }
+    }
+
+    private static void TryDeleteTemporaryFile(string temporaryPath)
+    {
+        try
+        {
+            File.Delete(temporaryPath);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (SecurityException)
+        {
         }
     }
 }
