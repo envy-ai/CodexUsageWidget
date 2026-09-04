@@ -914,14 +914,17 @@ public readonly record struct CapturedPlacement(double Left, double Top, string 
 
 public static class WindowPlacementService
 {
+    private const uint SwpNoSize = 0x0001;
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
 
     public static WindowPosition Clamp(double left, double top, double width, double height,
-        double workLeft, double workTop, double workRight, double workBottom) =>
-        new(
-            Math.Clamp(left, workLeft, workRight - width),
-            Math.Clamp(top, workTop, workBottom - height));
+        double workLeft, double workTop, double workRight, double workBottom)
+    {
+        var maxLeft = Math.Max(workLeft, workRight - width);
+        var maxTop = Math.Max(workTop, workBottom - height);
+        return new(Math.Clamp(left, workLeft, maxLeft), Math.Clamp(top, workTop, maxTop));
+    }
 
     public static void Restore(Window window, WidgetSettings settings)
     {
@@ -937,7 +940,7 @@ public static class WindowPlacementService
         var desiredTop = settings.Top ?? work.Bottom - height - 20;
         var position = Clamp(desiredLeft, desiredTop, width, height, work.Left, work.Top, work.Right, work.Bottom);
         SetWindowPos(handle, IntPtr.Zero, (int)Math.Round(position.Left), (int)Math.Round(position.Top), 0, 0,
-            SwpNoZOrder | SwpNoActivate);
+            SwpNoSize | SwpNoZOrder | SwpNoActivate);
     }
 
     public static CapturedPlacement Capture(Window window)
