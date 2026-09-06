@@ -8,7 +8,10 @@ public sealed record WidgetSettings(
     double? Left,
     double? Top,
     string? MonitorDeviceName,
-    bool StartWithWindows)
+    bool StartWithWindows,
+    double? Width = null,
+    double? Height = null,
+    bool Topmost = false)
 {
     public static WidgetSettings Default { get; } = new(null, null, null, false);
 }

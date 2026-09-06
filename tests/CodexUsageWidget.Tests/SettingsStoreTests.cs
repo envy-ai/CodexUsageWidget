@@ -12,7 +12,7 @@ public sealed class SettingsStoreTests
         try
         {
             var store = new SettingsStore(directory);
-            var expected = new WidgetSettings(12.5, 34.5, "DISPLAY1", true);
+            var expected = new WidgetSettings(12.5, 34.5, "DISPLAY1", true, 480, 140, true);
 
             store.Save(expected);
             var actual = store.Load();
@@ -38,6 +38,40 @@ public sealed class SettingsStoreTests
             var actual = store.Load();
 
             Assert.Equal(WidgetSettings.Default, actual);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void LegacyFileDefaultsMissingSizeAndPinState()
+    {
+        var directory = CreateTempDirectory();
+
+        try
+        {
+            const string json = """
+                {
+                  "Left": 12.5,
+                  "Top": 34.5,
+                  "MonitorDeviceName": "DISPLAY1",
+                  "StartWithWindows": true
+                }
+                """;
+            File.WriteAllText(Path.Combine(directory, "settings.json"), json);
+            var store = new SettingsStore(directory);
+
+            var actual = store.Load();
+
+            Assert.Equal(12.5, actual.Left);
+            Assert.Equal(34.5, actual.Top);
+            Assert.Equal("DISPLAY1", actual.MonitorDeviceName);
+            Assert.True(actual.StartWithWindows);
+            Assert.Null(actual.Width);
+            Assert.Null(actual.Height);
+            Assert.False(actual.Topmost);
         }
         finally
         {

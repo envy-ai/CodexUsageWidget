@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Controls.Primitives;
 using CodexUsageWidget.Services;
 using CodexUsageWidget.ViewModels;
 
@@ -27,6 +29,18 @@ public partial class MainWindow : System.Windows.Window
         InitializeComponent();
         DataContext = viewModel;
         _settings = settingsStore.Load();
+
+        var restoredSize = WindowSizeService.Restore(
+            _settings.Width,
+            _settings.Height,
+            Width,
+            Height,
+            MinWidth,
+            MinHeight);
+        Width = restoredSize.Width;
+        Height = restoredSize.Height;
+        Topmost = _settings.Topmost;
+        PinButton.IsChecked = Topmost;
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -61,6 +75,27 @@ public partial class MainWindow : System.Windows.Window
 
     private void CloseButton_Click(object sender, System.Windows.RoutedEventArgs e) => Close();
 
+    private void PinButton_Click(object sender, RoutedEventArgs e)
+    {
+        Topmost = PinButton.IsChecked == true;
+        SaveSettings();
+    }
+
+    private void ResizeGrip_DragDelta(object sender, DragDeltaEventArgs e)
+    {
+        var size = WindowSizeService.Resize(
+            ActualWidth,
+            ActualHeight,
+            e.HorizontalChange,
+            e.VerticalChange,
+            MinWidth,
+            MinHeight);
+        Width = size.Width;
+        Height = size.Height;
+    }
+
+    private void ResizeGrip_DragCompleted(object sender, DragCompletedEventArgs e) => SaveSettings();
+
     private void ContextMenu_Opened(object sender, System.Windows.RoutedEventArgs e)
     {
         StartWithWindowsMenuItem.IsChecked = _startupManager.IsEnabled();
@@ -86,7 +121,10 @@ public partial class MainWindow : System.Windows.Window
             placement.Left,
             placement.Top,
             placement.MonitorDeviceName,
-            _startupManager.IsEnabled());
+            _startupManager.IsEnabled(),
+            ActualWidth,
+            ActualHeight,
+            Topmost);
         _settingsStore.Save(_settings);
     }
 

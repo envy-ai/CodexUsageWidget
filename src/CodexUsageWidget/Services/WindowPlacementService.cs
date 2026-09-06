@@ -35,6 +35,16 @@ public static class WindowPlacementService
             Math.Clamp(top, workTop, maximumTop));
     }
 
+    public static WindowPosition GetDefaultPosition(
+        double workLeft,
+        double workTop,
+        double workWidth,
+        double windowWidth,
+        double margin) =>
+        new(
+            workLeft + workWidth - windowWidth - margin,
+            workTop + margin);
+
     public static void Restore(Window window, WidgetSettings settings)
     {
         ArgumentNullException.ThrowIfNull(window);
@@ -47,8 +57,14 @@ public static class WindowPlacementService
         var screen = SelectScreen(settings, rectangle);
         var workingArea = screen.WorkingArea;
 
-        var desiredLeft = settings.Left ?? workingArea.Right - width - DefaultMargin;
-        var desiredTop = settings.Top ?? workingArea.Bottom - height - DefaultMargin;
+        var defaultPosition = GetDefaultPosition(
+            workingArea.Left,
+            workingArea.Top,
+            workingArea.Width,
+            width,
+            DefaultMargin);
+        var desiredLeft = settings.Left ?? defaultPosition.Left;
+        var desiredTop = settings.Top ?? defaultPosition.Top;
         var position = Clamp(
             desiredLeft,
             desiredTop,
