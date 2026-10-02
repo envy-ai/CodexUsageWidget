@@ -37,6 +37,6 @@ public static class ResetTimeFormatter
 
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{countdown} · resets {localReset:ddd h:mm tt}");
+            $"{localReset:ddd h:mm tt} · {countdown}");
     }
 }

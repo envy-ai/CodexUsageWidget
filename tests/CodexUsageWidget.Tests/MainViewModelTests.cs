@@ -7,6 +7,30 @@ namespace CodexUsageWidget.Tests;
 public sealed class MainViewModelTests
 {
     [Fact]
+    public async Task FiveHourVisibilityTracksReportedWindowAndPreservesZeroOnFailure()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var client = new QueueCodexUsageClient(
+            new UsageSnapshot(new UsageWindow(0, now.AddHours(1)), new UsageWindow(70, now.AddDays(2))),
+            new IOException("offline"),
+            new UsageSnapshot(null, new UsageWindow(69, now.AddDays(2))));
+        await using var viewModel = new MainViewModel(client, () => now, TimeZoneInfo.Utc);
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+
+        await viewModel.RefreshAsync();
+        Assert.True(viewModel.HasFiveHourLimit);
+        Assert.Equal(0, viewModel.FiveHourRemaining);
+        await viewModel.RefreshAsync();
+        Assert.True(viewModel.HasFiveHourLimit);
+        Assert.True(viewModel.IsStale);
+        await viewModel.RefreshAsync();
+        Assert.False(viewModel.HasFiveHourLimit);
+        Assert.Empty(viewModel.FiveHourResetText);
+        Assert.Equal(2, notifications.Count(name => name == nameof(MainViewModel.HasFiveHourLimit)));
+    }
+
+    [Fact]
     public async Task FailedRefreshPreservesLastSnapshotAndMarksItStale()
     {
         var now = new DateTimeOffset(2025, 1, 3, 16, 0, 0, TimeSpan.Zero);

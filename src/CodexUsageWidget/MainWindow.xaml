@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:CodexUsageWidget"
         Title="Codex usage"
+        Icon="Assets/widget.ico"
         Width="330"
         Height="98"
         MinWidth="220"
@@ -20,12 +21,16 @@
         Closing="Window_Closing">
     <Window.Resources>
         <local:RemainingBrushConverter x:Key="RemainingBrushConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <DropShadowEffect x:Key="WidgetTextShadow" x:Shared="False"
                           Color="Black" BlurRadius="2" Direction="315"
                           ShadowDepth="1" Opacity="0.75" RenderingBias="Performance" />
         <DropShadowEffect x:Key="WidgetBarShadow" x:Shared="False"
                           Color="Black" BlurRadius="3" Direction="270"
                           ShadowDepth="1" Opacity="0.7" RenderingBias="Performance" />
+        <DropShadowEffect x:Key="ResetTextShadow" x:Shared="False"
+                          Color="Black" BlurRadius="5" Direction="270"
+                          ShadowDepth="0" Opacity="1" RenderingBias="Quality" />
         <Style x:Key="MeterProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="5" />
             <Setter Property="Background" Value="{StaticResource TrackBrush}" />
@@ -157,7 +162,18 @@
             </Grid.Resources>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" MinHeight="1" />
+                <RowDefinition>
+                    <RowDefinition.Style>
+                        <Style TargetType="RowDefinition">
+                            <Setter Property="Height" Value="*" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasFiveHourLimit}" Value="False">
+                                    <Setter Property="Height" Value="0" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </RowDefinition.Style>
+                </RowDefinition>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" MinHeight="1" />
                 <RowDefinition Height="Auto" />
@@ -165,7 +181,8 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Margin="0,0,36,0">
+            <Grid Grid.Row="0" Margin="0,0,36,0"
+                  Visibility="{Binding HasFiveHourLimit, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="50" />
                     <ColumnDefinition Width="*" />
@@ -211,15 +228,22 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Margin="0,0,4,0"
+                           Visibility="{Binding HasFiveHourLimit, Converter={StaticResource BooleanToVisibilityConverter}}"
                            VerticalAlignment="Center" TextAlignment="Left"
+                           TextTrimming="CharacterEllipsis"
                            FontFamily="Consolas" FontSize="8"
                            Foreground="{StaticResource MutedTextBrush}"
-                           Text="{Binding FiveHourResetText}" />
+                           Text="{Binding FiveHourResetText}"
+                           Effect="{StaticResource ResetTextShadow}"
+                           ToolTip="{Binding FiveHourResetText}" />
                 <TextBlock Grid.Column="1" Margin="4,0,0,0"
-                           VerticalAlignment="Center" TextAlignment="Right"
+                           VerticalAlignment="Center" TextAlignment="Left"
+                           TextTrimming="CharacterEllipsis"
                            FontFamily="Consolas" FontSize="8"
                            Foreground="{StaticResource MutedTextBrush}"
-                           Text="{Binding WeeklyResetText}" />
+                           Text="{Binding WeeklyResetText}"
+                           Effect="{StaticResource ResetTextShadow}"
+                           ToolTip="{Binding WeeklyResetText}" />
             </Grid>
 
             <TextBlock Grid.Row="6" Margin="0,0,14,0" VerticalAlignment="Bottom"
@@ -277,7 +301,7 @@
                     Style="{StaticResource HoverButtonStyle}"
                     FontFamily="Consolas"
                     FontSize="14"
-                    ToolTip="Exit"
+                    ToolTip="Hide widget"
                     Click="CloseButton_Click"
                     Content="×" />
         </StackPanel>
@@ -345,7 +369,7 @@
 
         <Border.ContextMenu>
             <ContextMenu Opened="ContextMenu_Opened">
-                <MenuItem Header="Refresh now" Click="RefreshNow_Click" />
+                <MenuItem Header="Refresh Immediately" Click="RefreshNow_Click" />
                 <MenuItem x:Name="StartWithWindowsMenuItem"
                           Header="Start with Windows"
                           IsCheckable="True"

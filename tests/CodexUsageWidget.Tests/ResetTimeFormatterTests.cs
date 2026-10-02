@@ -11,14 +11,14 @@ public sealed class ResetTimeFormatterTests
         "UTC-04:00");
 
     [Fact]
-    public void FormatsHoursMinutesAndLocalResetTime()
+    public void PlacesLocalResetClockWithAmPmBeforeCountdown()
     {
-        var now = new DateTimeOffset(2025, 1, 3, 16, 0, 0, TimeSpan.Zero);
-        var reset = new DateTimeOffset(2025, 1, 3, 18, 14, 0, TimeSpan.Zero);
+        var now = new DateTimeOffset(2025, 1, 3, 8, 0, 0, TimeSpan.Zero);
+        var reset = new DateTimeOffset(2025, 1, 3, 10, 14, 0, TimeSpan.Zero);
 
         var result = ResetTimeFormatter.Format(reset, now, UtcMinusFour);
 
-        Assert.Equal("2h 14m · resets Fri 2:14 PM", result);
+        Assert.Equal("Fri 6:14 AM · 2h 14m", result);
     }
 
     [Theory]
@@ -42,7 +42,7 @@ public sealed class ResetTimeFormatterTests
 
         var result = ResetTimeFormatter.Format(reset, now, UtcMinusFour);
 
-        Assert.Equal("2d 3h · resets Sun 3:00 PM", result);
+        Assert.Equal("Sun 3:00 PM · 2d 3h", result);
     }
 
     [Fact]
@@ -53,6 +53,6 @@ public sealed class ResetTimeFormatterTests
 
         var result = ResetTimeFormatter.Format(reset, now, UtcMinusFour);
 
-        Assert.Equal("1m · resets Fri 12:00 PM", result);
+        Assert.Equal("Fri 12:00 PM · 1m", result);
     }
 }

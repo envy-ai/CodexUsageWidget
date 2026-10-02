@@ -56,6 +56,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
             if (SetField(ref _fiveHourRemaining, value))
             {
                 OnPropertyChanged(nameof(FiveHourPercentageText));
+                OnPropertyChanged(nameof(HasFiveHourLimit));
             }
         }
     }
@@ -71,6 +72,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
             }
         }
     }
+
+    public bool HasFiveHourLimit => FiveHourRemaining.HasValue;
 
     public string FiveHourPercentageText => FiveHourRemaining is int value ? $"{value}%" : "—";
 

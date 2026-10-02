@@ -16,6 +16,7 @@ public partial class MainWindow : System.Windows.Window
     private readonly SettingsStore _settingsStore;
     private readonly StartupManager _startupManager;
     private WidgetSettings _settings;
+    private bool _isExiting;
 
     public MainWindow(
         MainViewModel viewModel,
@@ -60,6 +61,23 @@ public partial class MainWindow : System.Windows.Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         SaveSettings();
+        if (!_isExiting)
+        {
+            e.Cancel = true;
+            Hide();
+        }
+    }
+
+    public void ShowWidget()
+    {
+        Show();
+        Activate();
+    }
+
+    public void ExitWidget()
+    {
+        _isExiting = true;
+        Close();
     }
 
     private void Panel_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -112,7 +130,7 @@ public partial class MainWindow : System.Windows.Window
         SaveSettings();
     }
 
-    private void Exit_Click(object sender, System.Windows.RoutedEventArgs e) => Close();
+    private void Exit_Click(object sender, System.Windows.RoutedEventArgs e) => ExitWidget();
 
     private void SaveSettings()
     {
