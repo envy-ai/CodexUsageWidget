@@ -5,7 +5,7 @@ A small Windows desktop widget that displays remaining Codex usage and reset tim
 ## Features
 
 - Weekly usage meter and an optional five-hour meter, shown only when Codex reports that limit.
-- Reset dates with a dark shadow for readability over desktop backgrounds.
+- Right-aligned yellow reset dates with a crisp black outline for readability over desktop backgrounds.
 - Drag to move, resize, and pin above other windows.
 - Close to hide; restore with the tray icon's **Show widget** menu or a double-click.
 - Right-click the widget or tray icon for **Refresh Immediately** and **Exit**.

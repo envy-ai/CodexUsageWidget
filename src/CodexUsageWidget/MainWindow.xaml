@@ -28,9 +28,6 @@
         <DropShadowEffect x:Key="WidgetBarShadow" x:Shared="False"
                           Color="Black" BlurRadius="3" Direction="270"
                           ShadowDepth="1" Opacity="0.7" RenderingBias="Performance" />
-        <DropShadowEffect x:Key="ResetTextShadow" x:Shared="False"
-                          Color="Black" BlurRadius="5" Direction="270"
-                          ShadowDepth="0" Opacity="1" RenderingBias="Quality" />
         <Style x:Key="MeterProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="5" />
             <Setter Property="Background" Value="{StaticResource TrackBrush}" />
@@ -175,9 +172,9 @@
                     </RowDefinition.Style>
                 </RowDefinition>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" MinHeight="1" />
+                <RowDefinition Height="0.25*" MinHeight="0.25" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" MinHeight="1" />
+                <RowDefinition Height="1.75*" MinHeight="1" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -222,27 +219,25 @@
                            Text="{Binding WeeklyPercentageText, TargetNullValue=—}" />
             </Grid>
 
-            <Grid Grid.Row="4" ClipToBounds="True">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Margin="0,0,4,0"
+            <Grid Grid.Row="4" ClipToBounds="False">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <local:OutlinedTextBlock Grid.Row="0" Margin="0,0,36,0"
                            Visibility="{Binding HasFiveHourLimit, Converter={StaticResource BooleanToVisibilityConverter}}"
-                           VerticalAlignment="Center" TextAlignment="Left"
+                           VerticalAlignment="Center" TextAlignment="Right"
                            TextTrimming="CharacterEllipsis"
                            FontFamily="Consolas" FontSize="8"
-                           Foreground="{StaticResource MutedTextBrush}"
+                           Foreground="#FFFF44"
                            Text="{Binding FiveHourResetText}"
-                           Effect="{StaticResource ResetTextShadow}"
                            ToolTip="{Binding FiveHourResetText}" />
-                <TextBlock Grid.Column="1" Margin="4,0,0,0"
-                           VerticalAlignment="Center" TextAlignment="Left"
+                <local:OutlinedTextBlock Grid.Row="1" Margin="0,0,18,0"
+                           VerticalAlignment="Center" TextAlignment="Right"
                            TextTrimming="CharacterEllipsis"
                            FontFamily="Consolas" FontSize="8"
-                           Foreground="{StaticResource MutedTextBrush}"
+                           Foreground="#FFFF44"
                            Text="{Binding WeeklyResetText}"
-                           Effect="{StaticResource ResetTextShadow}"
                            ToolTip="{Binding WeeklyResetText}" />
             </Grid>
 
