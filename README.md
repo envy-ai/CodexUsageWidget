@@ -2,6 +2,8 @@
 
 A small Windows desktop widget that displays remaining Codex usage and reset times. Built with .NET 8 and WPF; requires Windows.
 
+![Codex Usage Widget on Windows showing weekly usage and the reset time](docs/images/codex-usage-widget.png)
+
 ## Features
 
 - Weekly usage meter and an optional five-hour meter, shown only when Codex reports that limit.
